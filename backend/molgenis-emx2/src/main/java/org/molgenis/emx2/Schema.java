@@ -47,6 +47,8 @@ public interface Schema {
 
   List<String> getRoles();
 
+  List<RolePrivilege> getPrivileges();
+
   String getRoleForUser(String user);
 
   List<String> getInheritedRolesForUser(String user);
@@ -54,4 +56,8 @@ public interface Schema {
   String getRoleForActiveUser();
 
   String getName();
+
+  void createRole(String role);
+
+  void dropRole(String myrole);
 }

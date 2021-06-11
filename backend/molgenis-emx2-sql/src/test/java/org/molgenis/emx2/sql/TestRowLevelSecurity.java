@@ -2,13 +2,15 @@ package org.molgenis.emx2.sql;
 
 import static org.junit.Assert.assertEquals;
 import static org.molgenis.emx2.Column.column;
+import static org.molgenis.emx2.Privilege.OWNER;
+import static org.molgenis.emx2.Privilege.VIEWER;
 import static org.molgenis.emx2.TableMetadata.table;
 
 import java.sql.SQLException;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.molgenis.emx2.Database;
-import org.molgenis.emx2.Privileges;
+import org.molgenis.emx2.Privilege;
 import org.molgenis.emx2.Row;
 import org.molgenis.emx2.Schema;
 
@@ -36,12 +38,11 @@ public class TestRowLevelSecurity {
       database.addUser(TESTRLS_HAS_RLS_VIEW);
 
       // grant both owner on TestRLS schema so can add row level security
-      s.addMember("testrls1", Privileges.OWNER.toString());
-      s.addMember("testrls2", Privileges.OWNER.toString());
+      s.addMember("testrls1", OWNER.toString());
+      s.addMember("testrls2", OWNER.toString());
 
       s.addMember(
-          TESTRLS_HAS_RLS_VIEW,
-          Privileges.VIEWER.toString()); // can view table but only rows with right RLS
+          TESTRLS_HAS_RLS_VIEW, VIEWER.toString()); // can view table but only rows with right RLS
 
       // let one user create the table
       database.setActiveUser("testrls1");

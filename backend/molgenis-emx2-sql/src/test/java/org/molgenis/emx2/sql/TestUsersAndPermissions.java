@@ -31,6 +31,33 @@ public class TestUsersAndPermissions {
   }
 
   @Test
+  public void testCreateAndDropCustomRoles() {
+    Schema schema = database.dropCreateSchema("testRoles");
+    schema.createRole("myrole");
+    List<String> roles = schema.getRoles();
+    assertTrue(roles.contains("myrole"));
+
+    schema.create(table("mytable"));
+
+    // set privilege
+    schema.getTable("mytable").grantPrivilege(Privilege.EDITOR, "myrole");
+
+    // get privileges
+    List<RolePrivilege> privileges = schema.getPrivileges();
+    assertTrue(privileges.stream().filter(p -> p.getRole().equals("myrole")).count() > 0);
+
+    // revoke privileges
+    schema.getTable("mytable").revokeAllPrivileges("myrole");
+    privileges = schema.getPrivileges();
+    assertTrue(privileges.stream().filter(p -> p.getRole().equals("myrole")).count() == 0);
+
+    // drop the role
+    schema.dropRole("myrole");
+    roles = schema.getRoles();
+    assertFalse(roles.contains("myrole"));
+  }
+
+  @Test
   public void testActiveUser() {
     try {
 
@@ -61,7 +88,7 @@ public class TestUsersAndPermissions {
 
       // retry with proper permission
       database.clearActiveUser(); // god mode so I can edit membership
-      schema1.addMember(user1, Privileges.MANAGER.toString());
+      schema1.addMember(user1, Privilege.MANAGER.toString());
       database.setActiveUser(user1);
       try {
         schema1.create(table("Test"));

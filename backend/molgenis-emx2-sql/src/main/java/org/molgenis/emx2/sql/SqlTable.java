@@ -5,6 +5,8 @@ import static org.molgenis.emx2.ColumnType.*;
 import static org.molgenis.emx2.Constants.*;
 import static org.molgenis.emx2.MutationType.*;
 import static org.molgenis.emx2.sql.SqlDatabase.ADMIN;
+import static org.molgenis.emx2.sql.SqlTableMetadataExecutor.executeGrantPrivilege;
+import static org.molgenis.emx2.sql.SqlTableMetadataExecutor.executeRevokeAllPrivileges;
 import static org.molgenis.emx2.sql.SqlTypeUtils.getTypedValue;
 
 import java.io.StringReader;
@@ -15,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.jooq.*;
 import org.molgenis.emx2.*;
+import org.molgenis.emx2.Privilege;
 import org.molgenis.emx2.Query;
 import org.molgenis.emx2.Row;
 import org.molgenis.emx2.Table;
@@ -31,6 +34,22 @@ class SqlTable implements Table {
   SqlTable(SqlDatabase db, SqlTableMetadata metadata) {
     this.db = db;
     this.metadata = metadata;
+  }
+
+  @Override
+  public void grantPrivilege(Privilege privilege, String role) {
+    executeGrantPrivilege(db.getJooq(), this, privilege, role);
+    logger.info(db.getActiveUser() + " granted " + privilege + " on " + getName() + " to " + role);
+    // metadata will retrieve the roles so need reloading
+    getSchema().getDatabase().getListener().schemaChanged(getSchema().getName());
+  }
+
+  @Override
+  public void revokeAllPrivileges(String role) {
+    executeRevokeAllPrivileges(db.getJooq(), this, role);
+    logger.info(db.getActiveUser() + " revoked ALL privileges on " + getName() + " from " + role);
+    // metadata will retrieve the roles so need reloading
+    getSchema().getDatabase().getListener().schemaChanged(getSchema().getName());
   }
 
   @Override

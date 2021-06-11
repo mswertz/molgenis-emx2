@@ -8,6 +8,10 @@ public interface Table {
 
   TableMetadata getMetadata();
 
+  void grantPrivilege(Privilege privilege, String role);
+
+  void revokeAllPrivileges(String role);
+
   Schema getSchema();
 
   int insert(Row... row);

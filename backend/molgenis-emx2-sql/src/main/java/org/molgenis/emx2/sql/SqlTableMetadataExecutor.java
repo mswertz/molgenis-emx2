@@ -4,6 +4,7 @@ import static org.jooq.impl.DSL.*;
 import static org.molgenis.emx2.Column.column;
 import static org.molgenis.emx2.ColumnType.*;
 import static org.molgenis.emx2.Constants.*;
+import static org.molgenis.emx2.Privilege.*;
 import static org.molgenis.emx2.sql.SqlColumnExecutor.*;
 
 import java.util.ArrayList;
@@ -30,14 +31,12 @@ class SqlTableMetadataExecutor {
 
     // grant rights to schema manager, editor and viewer rol
     jooq.execute(
-        "GRANT SELECT ON {0} TO {1}",
-        jooqTable, name(getRolePrefix(table) + Privileges.VIEWER.toString()));
+        "GRANT SELECT ON {0} TO {1}", jooqTable, name(getRolePrefix(table) + VIEWER.toString()));
     jooq.execute(
         "GRANT INSERT, UPDATE, DELETE, REFERENCES, TRUNCATE ON {0} TO {1}",
-        jooqTable, name(getRolePrefix(table) + Privileges.EDITOR.toString()));
+        jooqTable, name(getRolePrefix(table) + EDITOR.toString()));
     jooq.execute(
-        "ALTER TABLE {0} OWNER TO {1}",
-        jooqTable, name(getRolePrefix(table) + Privileges.MANAGER.toString()));
+        "ALTER TABLE {0} OWNER TO {1}", jooqTable, name(getRolePrefix(table) + MANAGER.toString()));
 
     // create columns from primary key of superclass
     if (table.getInherit() != null) {
@@ -243,7 +242,7 @@ class SqlTableMetadataExecutor {
     jooq.execute(functionBody);
     jooq.execute(
         "ALTER FUNCTION " + triggerfunction + " OWNER TO {0}",
-        name(getRolePrefix(table) + Privileges.MANAGER.toString()));
+        name(getRolePrefix(table) + MANAGER.toString()));
     return triggerfunction;
   }
 
@@ -306,5 +305,24 @@ class SqlTableMetadataExecutor {
         searchIndexName, jooqTable, searchColumnName);
 
     createSearchTrigger(jooq, table, table.getTableName());
+  }
+
+  static void executeGrantPrivilege(
+      DSLContext jooq, SqlTable table, Privilege privilege, String role) {
+    jooq.transaction(
+        t -> {
+          String psqlPrivilege = "UPDATE";
+          String psqlRole = getRolePrefix(table.getMetadata()) + role;
+          executeRevokeAllPrivileges(t.dsl(), table, role);
+          t.dsl()
+              .execute(
+                  "GRANT {0} ON {1} TO {2}",
+                  keyword(psqlPrivilege), table.getJooqTable(), name(psqlRole));
+        });
+  }
+
+  static void executeRevokeAllPrivileges(DSLContext jooq, SqlTable table, String role) {
+    String psqlRole = getRolePrefix(table.getMetadata()) + role;
+    jooq.execute("REVOKE ALL ON {0} FROM {1}", table.getJooqTable(), name(psqlRole));
   }
 }

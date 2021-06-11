@@ -56,4 +56,8 @@ class SqlDatabaseExecutor {
             + "$$;\n",
         inline(role), name(role));
   }
+
+  static void executeDropRole(DSLContext jooq, String role) {
+    jooq.execute("DROP ROLE  IF EXISTS {0}", name(role));
+  }
 }

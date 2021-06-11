@@ -150,7 +150,7 @@ public class SqlDatabase implements Database {
           // make current user a manager
           if (db.getActiveUser() != null) {
             db.getSchema(metadata.getName())
-                .addMember(db.getActiveUser(), Privileges.MANAGER.toString());
+                .addMember(db.getActiveUser(), Privilege.MANAGER.toString());
           }
         });
     getListener().schemaChanged(metadata.getName());

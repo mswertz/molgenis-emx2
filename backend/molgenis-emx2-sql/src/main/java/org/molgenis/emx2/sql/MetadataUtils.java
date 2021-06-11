@@ -7,6 +7,7 @@ import static org.molgenis.emx2.sql.Constants.MG_ROLE_PREFIX;
 import java.util.*;
 import org.jooq.*;
 import org.molgenis.emx2.*;
+import org.molgenis.emx2.Privilege;
 import org.molgenis.emx2.User;
 import org.molgenis.emx2.Version;
 import org.slf4j.Logger;
@@ -230,18 +231,18 @@ public class MetadataUtils {
     // this to enforce policy of being able to change vs view table.
     jooq.execute(
         "CREATE POLICY {0} ON {1} USING (pg_has_role(session_user, {2} || upper({3}) || '/"
-            + Privileges.MANAGER.toString()
+            + Privilege.MANAGER.toString()
             + "', 'member'))",
-        name("TABLE_RLS_" + Privileges.MANAGER),
+        name("TABLE_RLS_" + Privilege.MANAGER),
         table,
         MG_ROLE_PREFIX,
         TABLE_SCHEMA);
 
     jooq.execute(
         "CREATE POLICY {0} ON {1} FOR SELECT USING (pg_has_role(session_user, {2} || upper({3}) || '/"
-            + Privileges.VIEWER
+            + Privilege.VIEWER
             + "', 'member'))",
-        name("TABLE_RLS_" + Privileges.VIEWER),
+        name("TABLE_RLS_" + Privilege.VIEWER),
         table,
         MG_ROLE_PREFIX,
         TABLE_SCHEMA);

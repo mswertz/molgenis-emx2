@@ -1,20 +1,29 @@
 package org.molgenis.emx2.sql;
 
-import static org.jooq.impl.DSL.name;
-import static org.molgenis.emx2.Privileges.*;
+import static org.jooq.impl.DSL.*;
+import static org.molgenis.emx2.Privilege.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
-import org.jooq.CreateSchemaFinalStep;
-import org.jooq.DSLContext;
-import org.jooq.Record;
+import org.jooq.*;
 import org.jooq.exception.DataAccessException;
 import org.molgenis.emx2.*;
+import org.molgenis.emx2.Privilege;
+import org.molgenis.emx2.Schema;
 
 class SqlSchemaMetadataExecutor {
   private SqlSchemaMetadataExecutor() {
     // hide
+  }
+
+  static void executeCreateRole(DSLContext jooq, Schema schema, String role) {
+    String fullRole = getRolePrefix(schema.getName()) + role;
+    jooq.execute("CREATE ROLE {0}", name(fullRole));
+  }
+
+  static void executeDropRole(DSLContext jooq, Schema schema, String role) {
+    String fullRole = getRolePrefix(schema.getName()) + role;
+    jooq.execute("DROP ROLE IF EXISTS {0}", name(fullRole));
   }
 
   static void executeCreateSchema(SqlDatabase db, SchemaMetadata schema) {
@@ -25,7 +34,7 @@ class SqlSchemaMetadataExecutor {
       String member = getRolePrefix(schemaName) + VIEWER;
       String editor = getRolePrefix(schemaName) + EDITOR;
       String manager = getRolePrefix(schemaName) + MANAGER;
-      String owner = getRolePrefix(schemaName) + Privileges.OWNER;
+      String owner = getRolePrefix(schemaName) + OWNER;
 
       db.addRole(member);
       db.addRole(editor);
@@ -103,7 +112,7 @@ class SqlSchemaMetadataExecutor {
       }
 
       // give god powers if 'owner'
-      if (Privileges.OWNER.toString().equals(m.getRole())) {
+      if (Privilege.OWNER.toString().equals(m.getRole())) {
         jooq.execute("ALTER ROLE {0} CREATEROLE", name(username));
       }
 
@@ -189,6 +198,63 @@ class SqlSchemaMetadataExecutor {
             "select rolname from pg_catalog.pg_roles where rolname LIKE {0}",
             getRolePrefix(schemaName) + "%")) {
       result.add(r.getValue("rolname", String.class).substring(getRolePrefix(schemaName).length()));
+    }
+    return result;
+  }
+
+  static List<RolePrivilege> executeGetPrivileges(DSLContext jooq, Schema schema) {
+    // table,role,privilege
+    Map<String, Map<String, Privilege>> privileges = new LinkedHashMap<>();
+    String rolePrefix = getRolePrefix(schema.getName());
+    for (Record record :
+        jooq.fetch(
+            "SELECT grantee, table_schema, table_name, privilege_type\n"
+                + "FROM information_schema.table_privileges\n"
+                + "WHERE table_schema = {0}",
+            schema.getName())) {
+      String tableName = record.get(field("table_name"), String.class);
+      String roleName = record.get(field("grantee"), String.class).substring(rolePrefix.length());
+
+      // skip the standard roles
+      if (!roleName.equals("Viewer")
+          && !roleName.equals("Editor")
+          && !roleName.equals("Owner")
+          && !roleName.equals("Manager")) {
+        String priviligeType = record.get(field("privilege_type"), String.class);
+        Privilege privilege = null;
+
+        // filter the roles down to Viewer, Editor, None
+        switch (priviligeType) {
+          case "SELECT":
+            privilege = VIEWER;
+          case "UPDATE":
+          case "INSERT":
+          case "DELETE":
+          case "TRUNCATE":
+            privilege = EDITOR;
+            break;
+          default:
+            privilege = null;
+            break;
+        }
+        privileges.putIfAbsent(tableName, new LinkedHashMap<>());
+
+        // editor highest, otherwise viewer
+        if (privilege.equals(EDITOR)) {
+          privileges.get(tableName).put(roleName, EDITOR);
+        } else {
+          if (privilege != null && privileges.get(tableName).get(roleName) == null) {
+            privileges.get(tableName).put(roleName, VIEWER);
+          }
+        }
+      }
+    }
+    // convert
+    List<RolePrivilege> result = new LinkedList<>();
+    for (Map.Entry<String, Map<String, Privilege>> table : privileges.entrySet()) {
+      for (Map.Entry<String, Privilege> role : table.getValue().entrySet()) {
+        result.add(new RolePrivilege(role.getKey(), table.getKey(), role.getValue()));
+      }
     }
     return result;
   }

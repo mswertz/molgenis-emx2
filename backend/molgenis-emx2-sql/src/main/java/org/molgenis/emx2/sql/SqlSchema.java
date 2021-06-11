@@ -5,12 +5,17 @@ import static org.molgenis.emx2.sql.SqlColumnExecutor.executeRemoveRefConstraint
 import static org.molgenis.emx2.sql.SqlDatabase.ADMIN;
 import static org.molgenis.emx2.sql.SqlDatabase.ANONYMOUS;
 import static org.molgenis.emx2.sql.SqlSchemaMetadataExecutor.*;
+import static org.molgenis.emx2.sql.SqlTableMetadataExecutor.executeRevokeAllPrivileges;
 import static org.molgenis.emx2.utils.TableSort.sortTableByDependency;
 
 import java.util.*;
+import org.jooq.DSLContext;
 import org.molgenis.emx2.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SqlSchema implements Schema {
+  private static Logger logger = LoggerFactory.getLogger(SqlSchema.class);
   private SqlDatabase db;
   private SqlSchemaMetadata metadata;
 
@@ -78,6 +83,11 @@ public class SqlSchema implements Schema {
   @Override
   public List<String> getRoles() {
     return executeGetRoles(getMetadata().getJooq(), this.getMetadata().getName());
+  }
+
+  @Override
+  public List<RolePrivilege> getPrivileges() {
+    return executeGetPrivileges(getMetadata().getJooq(), this);
   }
 
   @Override
@@ -353,5 +363,27 @@ public class SqlSchema implements Schema {
 
   public String getName() {
     return getMetadata().getName();
+  }
+
+  public void createRole(String role) {
+    executeCreateRole(db.getJooq(), this, role);
+    logger.debug(db.getActiveUser() + " created role " + role);
+  }
+
+  public void dropRole(String role) {
+    db.getJooq()
+        .transaction(
+            t -> {
+              DSLContext dsl = t.dsl();
+              getPrivileges()
+                  .forEach(
+                      p -> {
+                        if (p.getRole().equals(role)) {
+                          executeRevokeAllPrivileges(dsl, getTable(p.getTable()), p.getRole());
+                        }
+                      });
+              executeDropRole(dsl, this, role);
+            });
+    logger.debug(db.getActiveUser() + " dropped role " + role);
   }
 }

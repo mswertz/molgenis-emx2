@@ -1,6 +1,6 @@
 package org.molgenis.emx2;
 
-public enum Privileges {
+public enum Privilege {
 
   // can select
   VIEWER("Viewer"),
@@ -9,11 +9,13 @@ public enum Privileges {
   // extends Editor to create, alter, drop, implies Manager
   MANAGER("Manager"),
   // can add/remove users to schema
-  OWNER("Owner");
+  OWNER("Owner"),
+  // none
+  NONE("None");
 
   private String name;
 
-  Privileges(String name) {
+  Privilege(String name) {
     this.name = name;
   }
 
